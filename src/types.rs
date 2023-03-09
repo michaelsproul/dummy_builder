@@ -1,6 +1,6 @@
 use eth2::types::{
-    ChainSpec, EthSpec, ExecutionPayloadHeader, ForkName, PublicKey, SecretKey, Signature,
-    SignedRoot, Uint256 as U256,
+    ChainSpec, EthSpec, ExecutionPayloadHeader, PublicKey, SecretKey, Signature, SignedRoot,
+    Uint256 as U256,
 };
 use serde::Serialize;
 use tree_hash_derive::TreeHash;
@@ -24,8 +24,7 @@ impl<E: EthSpec> Bid<E> {
 }
 
 #[derive(Serialize)]
-pub struct SignedVersionedResponse<T> {
-    pub version: ForkName,
-    pub data: T,
+pub struct SignedBid<E: EthSpec> {
+    pub message: Bid<E>,
     pub signature: Signature,
 }

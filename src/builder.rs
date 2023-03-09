@@ -1,12 +1,12 @@
 use crate::{
     sse::SseListener,
-    types::{Bid, SignedVersionedResponse},
+    types::{Bid, SignedBid},
     Error,
 };
 use eth2::types::{
     ChainSpec, EthSpec, ExecutionBlockHash, ExecutionPayload, ExecutionPayloadCapella,
-    ExecutionPayloadHeader, ExecutionPayloadMerge, ForkName, PublicKey, SecretKey, Slot,
-    Uint256 as U256,
+    ExecutionPayloadHeader, ExecutionPayloadMerge, ForkName, ForkVersionedResponse, PublicKey,
+    SecretKey, Slot, Uint256 as U256,
 };
 
 pub struct Builder {
@@ -31,7 +31,7 @@ impl Builder {
         &self,
         slot: Slot,
         parent_hash: ExecutionBlockHash,
-    ) -> Result<SignedVersionedResponse<Bid<E>>, Error> {
+    ) -> Result<ForkVersionedResponse<SignedBid<E>>, Error> {
         let ext_payload_attributes = self
             .sse_listener
             .get_payload_attributes(parent_hash, slot)
@@ -91,10 +91,12 @@ impl Builder {
         };
         let signature = bid.sign(&secret_key, &self.spec);
 
-        Ok(SignedVersionedResponse {
-            version,
-            data: bid,
-            signature,
+        Ok(ForkVersionedResponse {
+            version: Some(version),
+            data: SignedBid {
+                message: bid,
+                signature,
+            },
         })
     }
 }

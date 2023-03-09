@@ -1,15 +1,14 @@
-use crate::{
-    builder::Builder,
-    sse::SseListener,
-    types::{Bid, SignedVersionedResponse},
-};
+use crate::{builder::Builder, sse::SseListener, types::SignedBid};
 use axum::{
     extract::{rejection::PathRejection, Path, State},
     http::StatusCode,
     routing::{get, post},
     Json, Router,
 };
-use eth2::types::{ChainSpec, ExecutionBlockHash, MainnetEthSpec, PublicKeyBytes, SecretKey, Slot};
+use eth2::types::{
+    ChainSpec, ExecutionBlockHash, ForkVersionedResponse, MainnetEthSpec, PublicKeyBytes,
+    SecretKey, Slot,
+};
 use std::net::SocketAddr;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -64,7 +63,7 @@ pub async fn register() {
 pub async fn get_header(
     State(builder): State<Arc<Builder>>,
     path: Result<Path<(Slot, ExecutionBlockHash, PublicKeyBytes)>, PathRejection>,
-) -> Result<Json<SignedVersionedResponse<Bid<E>>>, (StatusCode, String)> {
+) -> Result<Json<ForkVersionedResponse<SignedBid<E>>>, (StatusCode, String)> {
     tracing::info!("payload header requested");
 
     let Path((slot, parent_hash, _)) = path.map_err(|e| {
