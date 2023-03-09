@@ -42,6 +42,13 @@ impl SseListener {
                             };
                         let parent_block_hash = payload_attributes.data.parent_block_hash;
                         let slot = payload_attributes.data.proposal_slot;
+
+                        tracing::info!(
+                            parent = ?parent_block_hash,
+                            slot = %slot,
+                            "got new payload attributes"
+                        );
+
                         self.payload_attributes
                             .lock()
                             .await

@@ -4,7 +4,7 @@ use crate::{
     types::{Bid, SignedVersionedResponse},
 };
 use axum::{
-    extract::{Path, State},
+    extract::{rejection::PathRejection, Path, State},
     http::StatusCode,
     routing::{get, post},
     Json, Router,
@@ -60,11 +60,17 @@ pub async fn register() {
 
 pub async fn get_header(
     State(builder): State<Arc<Builder>>,
-    Path(slot): Path<Slot>,
-    Path(parent_hash): Path<ExecutionBlockHash>,
-    _: Path<PublicKeyBytes>,
+    path: Result<Path<(Slot, ExecutionBlockHash, PublicKeyBytes)>, PathRejection>,
 ) -> Result<Json<SignedVersionedResponse<Bid<E>>>, (StatusCode, String)> {
-    tracing::info!(slot = %slot, "payload header requested");
+    tracing::info!("payload header requested");
+
+    let Path((slot, parent_hash, _)) = path.map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("invalid path params: {}", e.body_text()),
+        )
+    })?;
+
     match builder.get_header::<E>(slot, parent_hash).await {
         Ok(header) => Ok(Json(header)),
         Err(Error::NoPayload) => Err((StatusCode::NO_CONTENT, "no payload available".into())),
