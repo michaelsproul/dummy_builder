@@ -47,7 +47,7 @@ async fn main() {
         .with_state(builder);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 18550));
-    tracing::debug!("listening on {}", addr);
+    tracing::info!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
@@ -64,10 +64,14 @@ pub async fn get_header(
     Path(parent_hash): Path<ExecutionBlockHash>,
     _: Path<PublicKeyBytes>,
 ) -> Result<Json<SignedVersionedResponse<Bid<E>>>, (StatusCode, String)> {
+    tracing::info!(slot = %slot, "payload header requested");
     match builder.get_header::<E>(slot, parent_hash).await {
         Ok(header) => Ok(Json(header)),
         Err(Error::NoPayload) => Err((StatusCode::NO_CONTENT, "no payload available".into())),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, format!("{e:?}"))),
+        Err(e) => {
+            tracing::warn!(error = ?e, "header request failed");
+            Err((StatusCode::INTERNAL_SERVER_ERROR, format!("{e:?}")))
+        }
     }
 }
 
