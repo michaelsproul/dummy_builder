@@ -1,4 +1,5 @@
 use crate::{
+    config::Config,
     sse::SseListener,
     types::{Bid, SignedBid},
     Error,
@@ -6,23 +7,30 @@ use crate::{
 use eth2::types::{
     ChainSpec, EthSpec, ExecutionBlockHash, ExecutionPayload, ExecutionPayloadCapella,
     ExecutionPayloadHeader, ExecutionPayloadMerge, ForkName, ForkVersionedResponse, PublicKey,
-    SecretKey, Slot, Uint256 as U256,
+    SecretKey, Slot, VariableList,
 };
 
 pub struct Builder {
     sse_listener: SseListener,
     public_key: PublicKey,
     secret_key: SecretKey,
+    config: Config,
     spec: ChainSpec,
 }
 
 impl Builder {
-    pub fn new(secret_key: SecretKey, sse_listener: SseListener, spec: ChainSpec) -> Self {
+    pub fn new(
+        secret_key: SecretKey,
+        sse_listener: SseListener,
+        config: Config,
+        spec: ChainSpec,
+    ) -> Self {
         let public_key = secret_key.public_key();
         Self {
             sse_listener,
             public_key,
             secret_key,
+            config,
             spec,
         }
     }
@@ -48,7 +56,14 @@ impl Builder {
         let block_number = ext_payload_attributes.data.parent_block_number + 1;
         let gas_limit = 30_000_000;
 
-        let value = U256::from(1);
+        let transactions = VariableList::new(vec![VariableList::new(vec![
+            0;
+            self.config
+                .payload_body_bytes
+        ])
+        .unwrap()])
+        .unwrap();
+        let value = self.config.payload_value;
 
         let version = ext_payload_attributes.version.ok_or(Error::LogicError)?;
 
@@ -60,6 +75,7 @@ impl Builder {
                 prev_randao,
                 block_number,
                 gas_limit,
+                transactions,
                 ..Default::default()
             }),
             ForkName::Capella => {
@@ -75,6 +91,7 @@ impl Builder {
                     prev_randao,
                     block_number,
                     gas_limit,
+                    transactions,
                     withdrawals,
                     ..Default::default()
                 })

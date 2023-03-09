@@ -1,36 +1,48 @@
-use crate::{builder::Builder, sse::SseListener, types::SignedBid};
+use crate::{builder::Builder, config::Config, sse::SseListener, types::SignedBid};
 use axum::{
     extract::{rejection::PathRejection, Path, State},
     http::StatusCode,
     routing::{get, post},
     Json, Router,
 };
+use clap::Parser;
 use eth2::types::{
     ChainSpec, ExecutionBlockHash, ForkVersionedResponse, MainnetEthSpec, PublicKeyBytes,
     SecretKey, Slot,
 };
 use std::net::SocketAddr;
-use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 pub use crate::error::Error;
 
 mod builder;
+mod config;
 mod error;
 mod sse;
 mod types;
 
+// TODO: allow other specs to be configured
 type E = MainnetEthSpec;
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-    let url = "http://localhost:5052".to_string();
-    let cache_size = NonZeroUsize::new(16).unwrap();
-    let sse_listener = SseListener::new(url, cache_size);
+
+    let config = Config::parse();
+
+    let sse_listener =
+        SseListener::new(config.beacon_node.clone(), config.payload_attributes_cache);
     let secret_key = SecretKey::random();
+
+    // TODO: allow other networks to be configured
     let spec = ChainSpec::mainnet();
-    let builder = Arc::new(Builder::new(secret_key, sse_listener.clone(), spec));
+
+    let builder = Arc::new(Builder::new(
+        secret_key,
+        sse_listener.clone(),
+        config.clone(),
+        spec,
+    ));
 
     // Spawn event listener on its own thread.
     let sse_handle = tokio::spawn(async move { sse_listener.listen().await });
@@ -45,7 +57,7 @@ async fn main() {
         .route("/eth/v1/builder/status", get(status))
         .with_state(builder);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 18550));
+    let addr = SocketAddr::from(([127, 0, 0, 1], config.port));
     tracing::info!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
@@ -88,7 +100,7 @@ pub async fn status() {
 }
 
 pub async fn unblind() -> (StatusCode, String) {
-    // TODO.
+    // Unblinding is intentionally not implemented. These payloads are not valid.
     (
         StatusCode::INTERNAL_SERVER_ERROR,
         "not implemented".to_string(),
