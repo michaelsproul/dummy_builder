@@ -25,6 +25,8 @@ impl SseListener {
     }
 
     pub async fn listen(self) {
+        tracing::info!("starting SSE listener");
+
         let url = format!("{}/eth/v1/events?topics=payload_attributes", self.url);
         let client = ClientBuilder::for_url(&url).unwrap().build();
 

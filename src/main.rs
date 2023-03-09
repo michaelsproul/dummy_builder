@@ -34,7 +34,7 @@ async fn main() {
     let builder = Arc::new(Builder::new(secret_key, sse_listener.clone(), spec));
 
     // Spawn event listener on its own thread.
-    let _handle = tokio::spawn(async move { sse_listener.listen() });
+    let sse_handle = tokio::spawn(async move { sse_listener.listen().await });
 
     let app = Router::new()
         .route("/eth/v1/builder/validators", post(register))
@@ -52,6 +52,9 @@ async fn main() {
         .serve(app.into_make_service())
         .await
         .unwrap();
+
+    // Unreachable, but this acts as a sanity check, making sure we invoked the SSE future.
+    let () = sse_handle.await.unwrap();
 }
 
 pub async fn register() {
