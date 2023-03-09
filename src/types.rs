@@ -8,6 +8,7 @@ use tree_hash_derive::TreeHash;
 #[derive(Serialize, TreeHash)]
 pub struct Bid<E: EthSpec> {
     pub header: ExecutionPayloadHeader<E>,
+    #[serde(with = "serde_utils::quoted_u256")]
     pub value: U256,
     pub public_key: PublicKey,
 }
