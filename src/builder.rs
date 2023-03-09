@@ -39,7 +39,7 @@ impl Builder {
             .ok_or(Error::NoPayload)?;
         let payload_attributes = &ext_payload_attributes.data.payload_attributes;
 
-        let public_key = self.public_key.clone();
+        let pubkey = self.public_key.clone();
         let secret_key = &self.secret_key;
 
         let fee_recipient = payload_attributes.suggested_fee_recipient();
@@ -87,7 +87,7 @@ impl Builder {
         let bid = Bid {
             header,
             value,
-            public_key,
+            pubkey,
         };
         let signature = bid.sign(&secret_key, &self.spec);
 
