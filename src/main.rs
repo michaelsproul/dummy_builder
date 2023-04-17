@@ -1,6 +1,7 @@
 use crate::{builder::Builder, config::Config, sse::SseListener, types::SignedBid};
 use axum::{
-    extract::{rejection::PathRejection, Path, State},
+    extract::{rejection::PathRejection, Path, State, TypedHeader},
+    headers::UserAgent,
     http::StatusCode,
     routing::{get, post},
     Json, Router,
@@ -73,10 +74,11 @@ pub async fn register() {
 }
 
 pub async fn get_header(
+    TypedHeader(user_agent): TypedHeader<UserAgent>,
     State(builder): State<Arc<Builder>>,
     path: Result<Path<(Slot, ExecutionBlockHash, PublicKeyBytes)>, PathRejection>,
 ) -> Result<Json<ForkVersionedResponse<SignedBid<E>>>, (StatusCode, String)> {
-    tracing::info!("payload header requested");
+    tracing::info!(user_agent = user_agent.as_str(), "payload header requested");
 
     let Path((slot, parent_hash, _)) = path.map_err(|e| {
         (
