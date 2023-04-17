@@ -74,11 +74,13 @@ pub async fn register() {
 }
 
 pub async fn get_header(
-    TypedHeader(user_agent): TypedHeader<UserAgent>,
+    maybe_user_agent: Option<TypedHeader<UserAgent>>,
     State(builder): State<Arc<Builder>>,
     path: Result<Path<(Slot, ExecutionBlockHash, PublicKeyBytes)>, PathRejection>,
 ) -> Result<Json<ForkVersionedResponse<SignedBid<E>>>, (StatusCode, String)> {
-    tracing::info!(user_agent = user_agent.as_str(), "payload header requested");
+    let user_agent =
+        maybe_user_agent.map_or("none".to_string(), |agent| agent.as_str().to_string());
+    tracing::info!(user_agent, "payload header requested");
 
     let Path((slot, parent_hash, _)) = path.map_err(|e| {
         (
