@@ -1,4 +1,4 @@
-use crate::{builder::Builder, config::Config, sse::SseListener, types::SignedBid};
+use crate::{builder::Builder, config::Config, sse::SseListener};
 use axum::{
     extract::{rejection::PathRejection, Path, State, TypedHeader},
     headers::UserAgent,
@@ -7,6 +7,7 @@ use axum::{
     Json, Router,
 };
 use clap::Parser;
+use eth2::types::builder_bid::SignedBuilderBid;
 use eth2::types::{
     ChainSpec, ExecutionBlockHash, ForkVersionedResponse, MainnetEthSpec, PublicKeyBytes,
     SecretKey, Slot,
@@ -77,7 +78,7 @@ pub async fn get_header(
     maybe_user_agent: Option<TypedHeader<UserAgent>>,
     State(builder): State<Arc<Builder>>,
     path: Result<Path<(Slot, ExecutionBlockHash, PublicKeyBytes)>, PathRejection>,
-) -> Result<Json<ForkVersionedResponse<SignedBid<E>>>, (StatusCode, String)> {
+) -> Result<Json<ForkVersionedResponse<SignedBuilderBid<E>>>, (StatusCode, String)> {
     let user_agent =
         maybe_user_agent.map_or("none".to_string(), |agent| agent.as_str().to_string());
     tracing::info!(user_agent, "payload header requested");

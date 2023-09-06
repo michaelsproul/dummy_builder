@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tree_hash = { git = "https://github.com/michaelsproul/lighthouse", rev = "634db10003c34d6008a3c6453ed39aab063a50b8" }
-tree_hash_derive = { git = "https://github.com/michaelsproul/lighthouse", rev = "634db10003c34d6008a3c6453ed39aab063a50b8" }
-eth2 = { git = "https://github.com/michaelsproul/lighthouse", rev = "634db10003c34d6008a3c6453ed39aab063a50b8" }
+tree_hash = "0.5.1"
+tree_hash_derive = "0.5.1"
+eth2 = { git = "https://github.com/jimmygchen/lighthouse", rev = "2bed36c698d4fd9b94fb591273cf837dca7417b5" }
 tokio = { version = "1.0.0", features = ["rt-multi-thread"] }
 axum = { version = "0.6.10", features = ["headers"] }
 lru = "0.10.0"
@@ -18,14 +18,3 @@ eventsource-client = "0.11.0"
 futures = "0.3.26"
 ethereum_serde_utils = "0.5.0"
 clap = { version = "4.0.0", features = ["derive"] }
-
-[patch]
-[patch.crates-io]
-eth2_ssz = { git = "https://github.com/michaelsproul/lighthouse", rev = "634db10003c34d6008a3c6453ed39aab063a50b8" }
-eth2_ssz_derive = { git = "https://github.com/michaelsproul/lighthouse", rev = "634db10003c34d6008a3c6453ed39aab063a50b8" }
-eth2_ssz_types = { git = "https://github.com/michaelsproul/lighthouse", rev = "634db10003c34d6008a3c6453ed39aab063a50b8" }
-eth2_hashing = { git = "https://github.com/michaelsproul/lighthouse", rev = "634db10003c34d6008a3c6453ed39aab063a50b8" }
-tree_hash = { git = "https://github.com/michaelsproul/lighthouse", rev = "634db10003c34d6008a3c6453ed39aab063a50b8" }
-tree_hash_derive = { git = "https://github.com/michaelsproul/lighthouse", rev = "634db10003c34d6008a3c6453ed39aab063a50b8" }
-eth2_serde_utils = { git = "https://github.com/michaelsproul/lighthouse", rev = "634db10003c34d6008a3c6453ed39aab063a50b8" }
-arbitrary = { git = "https://github.com/michaelsproul/arbitrary", rev="a572fd8743012a4f1ada5ee5968b1b3619c427ba" }

@@ -1,13 +1,14 @@
-use crate::{
-    config::Config,
-    sse::SseListener,
-    types::{Bid, SignedBid},
-    Error,
+use crate::types::SignableBid;
+use crate::{config::Config, sse::SseListener, Error};
+use eth2::types::beacon_block_body::KzgCommitments;
+use eth2::types::builder_bid::{
+    BlindedBlobsBundle, BuilderBid, BuilderBidCapella, BuilderBidDeneb, BuilderBidMerge,
+    SignedBuilderBid,
 };
 use eth2::types::{
-    ChainSpec, EthSpec, ExecutionBlockHash, ExecutionPayload, ExecutionPayloadCapella,
-    ExecutionPayloadHeader, ExecutionPayloadMerge, ForkName, ForkVersionedResponse, PublicKey,
-    SecretKey, Slot, VariableList,
+    BlobRootsList, ChainSpec, EthSpec, ExecutionBlockHash, ExecutionPayload,
+    ExecutionPayloadCapella, ExecutionPayloadDeneb, ExecutionPayloadHeader, ExecutionPayloadMerge,
+    ForkName, ForkVersionedResponse, KzgProofs, PublicKey, SecretKey, Slot, Uint256, VariableList,
 };
 
 pub struct Builder {
@@ -39,7 +40,7 @@ impl Builder {
         &self,
         slot: Slot,
         parent_hash: ExecutionBlockHash,
-    ) -> Result<ForkVersionedResponse<SignedBid<E>>, Error> {
+    ) -> Result<ForkVersionedResponse<SignedBuilderBid<E>>, Error> {
         let ext_payload_attributes = self
             .sse_listener
             .get_payload_attributes(parent_hash, slot)
@@ -96,24 +97,71 @@ impl Builder {
                     ..Default::default()
                 })
             }
+            ForkName::Deneb => {
+                let withdrawals = payload_attributes
+                    .withdrawals()
+                    .map_err(|_| Error::LogicError)?
+                    .clone()
+                    .into();
+                ExecutionPayload::Deneb(ExecutionPayloadDeneb {
+                    parent_hash,
+                    timestamp,
+                    fee_recipient,
+                    prev_randao,
+                    block_number,
+                    gas_limit,
+                    transactions,
+                    withdrawals,
+                    ..Default::default()
+                })
+            }
             _ => return Err(Error::NoPayload),
         };
 
         let header = ExecutionPayloadHeader::from(payload.to_ref());
 
-        let bid = Bid {
-            header,
-            value,
-            pubkey,
-        };
-        let signature = bid.sign(&secret_key, &self.spec);
+        let bid = new_dummy_bid(header, value, pubkey);
+        let signature = bid.sign(secret_key, &self.spec);
 
         Ok(ForkVersionedResponse {
             version: Some(version),
-            data: SignedBid {
+            data: SignedBuilderBid {
                 message: bid,
                 signature,
             },
         })
+    }
+}
+
+fn new_dummy_bid<E: EthSpec>(
+    payload: ExecutionPayloadHeader<E>,
+    value: Uint256,
+    pubkey: PublicKey,
+) -> BuilderBid<E> {
+    match payload {
+        ExecutionPayloadHeader::Merge(header) => BuilderBid::Merge(BuilderBidMerge {
+            header,
+            value,
+            pubkey: pubkey.into(),
+        }),
+        ExecutionPayloadHeader::Capella(header) => BuilderBid::Capella(BuilderBidCapella {
+            header,
+            value,
+            pubkey: pubkey.into(),
+        }),
+        ExecutionPayloadHeader::Deneb(header) => BuilderBid::Deneb(BuilderBidDeneb {
+            header,
+            blinded_blobs_bundle: empty_blinded_blobs_bundle(),
+            value,
+            pubkey: pubkey.into(),
+        }),
+    }
+}
+
+fn empty_blinded_blobs_bundle<E: EthSpec>() -> BlindedBlobsBundle<E> {
+    BlindedBlobsBundle {
+        commitments: KzgCommitments::<E>::empty(),
+        proofs: KzgProofs::<E>::empty(),
+        blob_roots: BlobRootsList::<E>::empty(),
     }
 }
