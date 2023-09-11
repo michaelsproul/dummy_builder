@@ -14,7 +14,7 @@ use eth2::types::{
     SignedBlockContents, Slot,
 };
 use eth2_network_config::Eth2NetworkConfig;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 pub use crate::error::Error;
@@ -85,7 +85,12 @@ pub async fn start_with_config<E: EthSpec>(
         .route("/eth/v1/builder/status", get(status))
         .with_state(builder);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], config.port));
+    let addr = config
+        .listen_address
+        .parse::<IpAddr>()
+        .expect("listen-address should be a valid Ip address");
+
+    let addr = SocketAddr::new(addr, config.port);
     tracing::info!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())

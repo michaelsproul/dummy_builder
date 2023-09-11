@@ -9,8 +9,12 @@ pub struct Config {
     #[arg(long, value_name = "URL", default_value = "http://localhost:5052")]
     pub beacon_node: String,
 
+    /// Address to listen on.
+    #[arg(long, value_name = "ADDRESS", default_value = "0.0.0.0")]
+    pub listen_address: String,
+
     /// Port to listen on.
-    #[arg(long, value_name = "N", default_value = "18550")]
+    #[arg(long, value_name = "PORT", default_value = "18550")]
     pub port: u16,
 
     /// Number of payload attributes to cache in memory.
