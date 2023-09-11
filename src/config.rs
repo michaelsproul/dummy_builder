@@ -24,4 +24,12 @@ pub struct Config {
     /// Value of the payload in WEI.
     #[arg(long, value_name = "N", default_value = "0")]
     pub payload_value: Uint256,
+
+    /// The network to use. Defaults to mainnet.
+    #[arg(long, value_name = "NAME", default_value = "mainnet")]
+    pub network: String,
+
+    /// The custom network config to use. Overrides the --network flag
+    #[arg(long, value_name = "PATH")]
+    pub custom_network: Option<String>,
 }

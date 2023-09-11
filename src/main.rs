@@ -9,8 +9,8 @@ use axum::{
 use clap::Parser;
 use eth2::types::builder_bid::SignedBuilderBid;
 use eth2::types::{
-    ChainSpec, ExecutionBlockHash, ForkVersionedResponse, MainnetEthSpec, PublicKeyBytes,
-    SecretKey, Slot,
+    ChainSpec, EthSpecId, ExecutionBlockHash, ForkVersionedResponse, GnosisEthSpec, MainnetEthSpec,
+    MinimalEthSpec, PublicKeyBytes, SecretKey, Slot,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -36,8 +36,26 @@ async fn main() {
         SseListener::new(config.beacon_node.clone(), config.payload_attributes_cache);
     let secret_key = SecretKey::random();
 
-    // TODO: allow other networks to be configured
-    let spec = ChainSpec::mainnet();
+    let spec = if let Some(ref config_path_str) = config.custom_network {
+        let config_path = std::path::Path::new(config_path_str);
+        let config = eth2::types::chain_spec::Config::from_file(config_path)
+            .expect("Config should be loaded from provided file path");
+        match config.eth_spec_id().unwrap_or(EthSpecId::Mainnet) {
+            EthSpecId::Mainnet => ChainSpec::from_config::<MainnetEthSpec>(&config),
+            EthSpecId::Minimal => ChainSpec::from_config::<MinimalEthSpec>(&config),
+            EthSpecId::Gnosis => ChainSpec::from_config::<GnosisEthSpec>(&config),
+        }
+        .expect("ChainSpec should be constructed from config")
+    } else {
+        ChainSpec::mainnet()
+    };
+
+    let config_name = spec
+        .config_name
+        .as_ref()
+        .map(String::as_str)
+        .unwrap_or("Unknown network");
+    tracing::info!("loaded chain config: {}", config_name);
 
     let builder = Arc::new(Builder::new(
         secret_key,
