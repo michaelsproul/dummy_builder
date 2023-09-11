@@ -1272,6 +1272,7 @@ dependencies = [
  "axum",
  "clap 4.1.8",
  "eth2",
+ "eth2_network_config",
  "ethereum_serde_utils",
  "eventsource-client",
  "futures",
