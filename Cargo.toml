@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 tree_hash = "0.5.1"
 tree_hash_derive = "0.5.1"
-eth2 = { git = "https://github.com/jimmygchen/lighthouse", rev = "2bed36c698d4fd9b94fb591273cf837dca7417b5" }
+eth2 = { git = "https://github.com/sigp/lighthouse", rev = "1db739490e8771666671352cfb96b14f23a93729" }
 tokio = { version = "1.0.0", features = ["rt-multi-thread"] }
 axum = { version = "0.6.10", features = ["headers"] }
 lru = "0.10.0"
