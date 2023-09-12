@@ -1,29 +1,34 @@
-use crate::{
-    config::Config,
-    sse::SseListener,
-    types::{Bid, SignedBid},
-    Error,
+use crate::payload_cache::PayloadCache;
+use crate::types::SignableBid;
+use crate::{config::Config, sse::SseListener, Error};
+use eth2::types::builder_bid::{
+    BlindedBlobsBundle, BuilderBid, BuilderBidCapella, BuilderBidDeneb, BuilderBidMerge,
+    SignedBuilderBid,
 };
 use eth2::types::{
-    ChainSpec, EthSpec, ExecutionBlockHash, ExecutionPayload, ExecutionPayloadCapella,
-    ExecutionPayloadHeader, ExecutionPayloadMerge, ForkName, ForkVersionedResponse, PublicKey,
-    SecretKey, Slot, VariableList,
+    BlindedPayload, BlobsBundle, ChainSpec, EthSpec, ExecutionBlockHash, ExecutionPayload,
+    ExecutionPayloadCapella, ExecutionPayloadDeneb, ExecutionPayloadHeader, ExecutionPayloadMerge,
+    ForkName, ForkVersionedResponse, FullPayloadContents, PublicKey, SecretKey,
+    SignedBlockContents, Slot, Uint256, VariableList,
 };
+use tree_hash::TreeHash;
 
-pub struct Builder {
+pub struct Builder<E: EthSpec> {
     sse_listener: SseListener,
     public_key: PublicKey,
     secret_key: SecretKey,
     config: Config,
     spec: ChainSpec,
+    payload_cache: PayloadCache<E>,
 }
 
-impl Builder {
+impl<E: EthSpec> Builder<E> {
     pub fn new(
         secret_key: SecretKey,
         sse_listener: SseListener,
         config: Config,
         spec: ChainSpec,
+        payload_cache: PayloadCache<E>,
     ) -> Self {
         let public_key = secret_key.public_key();
         Self {
@@ -32,14 +37,15 @@ impl Builder {
             secret_key,
             config,
             spec,
+            payload_cache,
         }
     }
 
-    pub async fn get_header<E: EthSpec>(
+    pub async fn get_header(
         &self,
         slot: Slot,
         parent_hash: ExecutionBlockHash,
-    ) -> Result<ForkVersionedResponse<SignedBid<E>>, Error> {
+    ) -> Result<ForkVersionedResponse<SignedBuilderBid<E>>, Error> {
         let ext_payload_attributes = self
             .sse_listener
             .get_payload_attributes(parent_hash, slot)
@@ -67,24 +73,11 @@ impl Builder {
 
         let version = ext_payload_attributes.version.ok_or(Error::LogicError)?;
 
-        let payload = match version {
-            ForkName::Merge => ExecutionPayload::Merge(ExecutionPayloadMerge {
-                parent_hash,
-                timestamp,
-                fee_recipient,
-                prev_randao,
-                block_number,
-                gas_limit,
-                transactions,
-                ..Default::default()
-            }),
-            ForkName::Capella => {
-                let withdrawals = payload_attributes
-                    .withdrawals()
-                    .map_err(|_| Error::LogicError)?
-                    .clone()
-                    .into();
-                ExecutionPayload::Capella(ExecutionPayloadCapella {
+        // Using a dummy block hash as we don't need a valid payload, but LH expects a non zero hash.
+        let block_hash = ExecutionBlockHash::repeat_byte(42);
+        let (payload, maybe_blobs) = match version {
+            ForkName::Merge => (
+                ExecutionPayload::Merge(ExecutionPayloadMerge {
                     parent_hash,
                     timestamp,
                     fee_recipient,
@@ -92,28 +85,124 @@ impl Builder {
                     block_number,
                     gas_limit,
                     transactions,
-                    withdrawals,
+                    block_hash,
                     ..Default::default()
-                })
+                }),
+                None,
+            ),
+            ForkName::Capella => {
+                let withdrawals = payload_attributes
+                    .withdrawals()
+                    .map_err(|_| Error::LogicError)?
+                    .clone()
+                    .into();
+                (
+                    ExecutionPayload::Capella(ExecutionPayloadCapella {
+                        parent_hash,
+                        timestamp,
+                        fee_recipient,
+                        prev_randao,
+                        block_number,
+                        gas_limit,
+                        transactions,
+                        withdrawals,
+                        block_hash,
+                        ..Default::default()
+                    }),
+                    None,
+                )
+            }
+            ForkName::Deneb => {
+                let withdrawals = payload_attributes
+                    .withdrawals()
+                    .map_err(|_| Error::LogicError)?
+                    .clone()
+                    .into();
+                (
+                    ExecutionPayload::Deneb(ExecutionPayloadDeneb {
+                        parent_hash,
+                        timestamp,
+                        fee_recipient,
+                        prev_randao,
+                        block_number,
+                        gas_limit,
+                        transactions,
+                        withdrawals,
+                        block_hash,
+                        ..Default::default()
+                    }),
+                    Some(BlobsBundle::default()),
+                )
             }
             _ => return Err(Error::NoPayload),
         };
 
-        let header = ExecutionPayloadHeader::from(payload.to_ref());
+        let header = ExecutionPayloadHeader::from(payload.clone().to_ref());
+        let bid = new_dummy_bid(header, value, pubkey);
+        let signature = bid.sign(secret_key, &self.spec);
 
-        let bid = Bid {
-            header,
-            value,
-            pubkey,
-        };
-        let signature = bid.sign(&secret_key, &self.spec);
+        self.payload_cache
+            .put(FullPayloadContents::new(payload, maybe_blobs))
+            .await;
 
         Ok(ForkVersionedResponse {
             version: Some(version),
-            data: SignedBid {
+            data: SignedBuilderBid {
                 message: bid,
                 signature,
             },
         })
+    }
+
+    pub async fn submit_blinded_block(
+        &self,
+        signed_blinded_block_contents: SignedBlockContents<E, BlindedPayload<E>>,
+    ) -> Result<ForkVersionedResponse<FullPayloadContents<E>>, Error> {
+        let block_hash = signed_blinded_block_contents
+            .signed_block()
+            .message()
+            .execution_payload()
+            .map_err(|_| Error::LogicError)?
+            .tree_hash_root();
+
+        let full_payload_contents = self
+            .payload_cache
+            .pop(&block_hash)
+            .await
+            .ok_or(Error::UnbindPayloadError(block_hash))?;
+
+        let fork = signed_blinded_block_contents
+            .signed_block()
+            .fork_name_unchecked();
+
+        Ok(ForkVersionedResponse {
+            version: Some(fork),
+            data: full_payload_contents,
+        })
+    }
+}
+
+fn new_dummy_bid<E: EthSpec>(
+    payload: ExecutionPayloadHeader<E>,
+    value: Uint256,
+    pubkey: PublicKey,
+) -> BuilderBid<E> {
+    match payload {
+        ExecutionPayloadHeader::Merge(header) => BuilderBid::Merge(BuilderBidMerge {
+            header,
+            value,
+            pubkey: pubkey.into(),
+        }),
+        ExecutionPayloadHeader::Capella(header) => BuilderBid::Capella(BuilderBidCapella {
+            header,
+            value,
+            pubkey: pubkey.into(),
+        }),
+        ExecutionPayloadHeader::Deneb(header) => BuilderBid::Deneb(BuilderBidDeneb {
+            header,
+            blinded_blobs_bundle: BlindedBlobsBundle::default(),
+            value,
+            pubkey: pubkey.into(),
+        }),
     }
 }
