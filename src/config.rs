@@ -10,7 +10,7 @@ pub struct Config {
     pub beacon_node: String,
 
     /// Address to listen on.
-    #[arg(long, value_name = "ADDRESS", default_value = "0.0.0.0")]
+    #[arg(long, value_name = "ADDRESS", default_value = "127.0.0.1")]
     pub listen_address: String,
 
     /// Port to listen on.

@@ -23,8 +23,8 @@ by the EL on `newPayload`.
 
 ## Quick Start with Docker
 
-`dummry_builder` utilises the BN to produce payload attributes every slot, e.g. if you're running a Lighthouse beacon 
-node, you'll need to run Lighthouse with `--always-prepare-payload` and `--prepare-payload-lookahead 8000` get the BN 
+`dummy_builder` utilises the BN to produce payload attributes every slot, e.g. if you're running a Lighthouse beacon 
+node, you'll need to run Lighthouse with `--always-prepare-payload` and `--prepare-payload-lookahead 8000` to get the BN 
 to produce payload attributes every slot (at 4s). 
 
 To build the Docker image:
@@ -39,7 +39,8 @@ To start:
 docker run -p 18550:18550 -e RUST_LOG=info -v $(pwd)/config.yaml:/app/config.yaml dummy_builder \
   --beacon-node http://docker.host.internal:5052 \
   --payload-value 20000000000000000 \
-  --custom-network /app/config.yaml
+  --custom-network /app/config.yaml \
+  --listen-address 0.0.0.0
 ```  
   
 This starts `dummy_builder` on http://localhost:18550. Run `dummy_builder --help` to see all available options.
